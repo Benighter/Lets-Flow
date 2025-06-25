@@ -39,6 +39,20 @@ const corsOptions = {
 app.use(cors(corsOptions))
 app.use(bodyParser.json())
 
+// Health check route
+app.get('/', (req, res) => {
+	res.json({
+		status: 'OK',
+		message: 'Let\'s Flow Connect Backend is running!',
+		timestamp: new Date().toISOString()
+	})
+})
+
+// API health check
+app.get('/health', (req, res) => {
+	res.json({ status: 'healthy', service: 'lets-flow-connect-backend' })
+})
+
 if(process.env.NODE_ENV==='production'){
 	app.use(express.static(__dirname+"/build"))
 	app.get("*", (req, res) => {
