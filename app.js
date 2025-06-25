@@ -19,6 +19,8 @@ var io = require('socket.io')(server, {
 			"http://localhost:8000",
 			"https://lets-flow-connect-4lnvp13ps-benighters-projects.vercel.app",
 			"https://lets-flow-connect-5szqlbprt-benighters-projects.vercel.app",
+			"https://lets-flow-connect-od5wcu2dj-benighters-projects.vercel.app",
+			"https://lets-flow-connect-2ym1necx3-benighters-projects.vercel.app",
 			"https://lets-flow-connect.vercel.app"
 		],
 		credentials: true
@@ -32,6 +34,8 @@ const corsOptions = {
 		"http://localhost:8000",
 		"https://lets-flow-connect-4lnvp13ps-benighters-projects.vercel.app",
 		"https://lets-flow-connect-5szqlbprt-benighters-projects.vercel.app",
+		"https://lets-flow-connect-od5wcu2dj-benighters-projects.vercel.app",
+		"https://lets-flow-connect-2ym1necx3-benighters-projects.vercel.app",
 		"https://lets-flow-connect.vercel.app"
 	],
 	credentials: true
