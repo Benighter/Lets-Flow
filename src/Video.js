@@ -50,7 +50,6 @@ const peerConnectionConfig = {
 }
 var socket = null
 var socketId = null
-var elms = 0
 
 class Video extends Component {
 	constructor(props) {
@@ -89,7 +88,10 @@ class Video extends Component {
 			roomName: '',
 			meetingDuration: 0,
 			showControls: true,
-			controlsTimeout: null
+			controlsTimeout: null,
+			// Video grid management
+			remoteStreams: [],
+			participants: []
 		}
 		connections = {}
 
@@ -273,39 +275,7 @@ class Video extends Component {
 		}
 	}
 
-	changeCssVideos = (main) => {
-		let widthMain = main.offsetWidth
-		let minWidth = "30%"
-		if ((widthMain * 30 / 100) < 300) {
-			minWidth = "300px"
-		}
-		let minHeight = "40%"
 
-		let height = String(100 / elms) + "%"
-		let width = ""
-		if(elms === 0 || elms === 1) {
-			width = "100%"
-			height = "100%"
-		} else if (elms === 2) {
-			width = "45%"
-			height = "100%"
-		} else if (elms === 3 || elms === 4) {
-			width = "35%"
-			height = "50%"
-		} else {
-			width = String(100 / elms) + "%"
-		}
-
-		let videos = main.querySelectorAll("video")
-		for (let a = 0; a < videos.length; ++a) {
-			videos[a].style.minWidth = minWidth
-			videos[a].style.minHeight = minHeight
-			videos[a].style.setProperty("width", width)
-			videos[a].style.setProperty("height", height)
-		}
-
-		return {minWidth, minHeight, width, height}
-	}
 
 	connectToSocketServer = () => {
 		socket = io.connect(server_url, { secure: true })
@@ -319,20 +289,34 @@ class Video extends Component {
 			socket.on('chat-message', this.addMessage)
 
 			socket.on('user-left', (id) => {
-				let video = document.querySelector(`[data-socket="${id}"]`)
-				if (video !== null) {
-					elms--
-					video.parentNode.removeChild(video)
+				// Remove participant from state
+				this.setState(prevState => {
+					const updatedRemoteStreams = prevState.remoteStreams.filter(stream => stream.socketId !== id)
+					const updatedParticipants = prevState.participants.filter(participant => participant.socketId !== id)
 
-					let main = document.getElementById('main')
-					this.changeCssVideos(main)
+					return {
+						remoteStreams: updatedRemoteStreams,
+						participants: updatedParticipants,
+						participantCount: updatedParticipants.length + 1 // +1 for local user
+					}
+				})
+
+				// Clean up connection
+				if (connections[id]) {
+					connections[id].close()
+					delete connections[id]
 				}
 			})
 
 			socket.on('user-joined', (id, clients) => {
+				// Update participant count
+				this.setState(prevState => ({
+					participantCount: clients.length + 1 // +1 for local user
+				}))
+
 				clients.forEach((socketListId) => {
 					connections[socketListId] = new RTCPeerConnection(peerConnectionConfig)
-					// Wait for their ice candidate       
+					// Wait for their ice candidate
 					connections[socketListId].onicecandidate = function (event) {
 						if (event.candidate != null) {
 							socket.emit('signal', socketListId, JSON.stringify({ 'ice': event.candidate }))
@@ -341,30 +325,47 @@ class Video extends Component {
 
 					// Wait for their video stream
 					connections[socketListId].onaddstream = (event) => {
-						// TODO mute button, full screen button
-						var searchVidep = document.querySelector(`[data-socket="${socketListId}"]`)
-						if (searchVidep !== null) { // if i don't do this check it make an empyt square
-							searchVidep.srcObject = event.stream
-						} else {
-							elms = clients.length
-							let main = document.getElementById('main')
-							let cssMesure = this.changeCssVideos(main)
+						// Add remote stream to state instead of DOM manipulation
+						this.setState(prevState => {
+							// Check if stream already exists
+							const existingStreamIndex = prevState.remoteStreams.findIndex(
+								stream => stream.socketId === socketListId
+							)
 
-							let video = document.createElement('video')
+							if (existingStreamIndex !== -1) {
+								// Update existing stream
+								const updatedStreams = [...prevState.remoteStreams]
+								updatedStreams[existingStreamIndex] = {
+									...updatedStreams[existingStreamIndex],
+									stream: event.stream
+								}
+								return { remoteStreams: updatedStreams }
+							} else {
+								// Add new stream
+								const newStream = {
+									socketId: socketListId,
+									stream: event.stream,
+									username: `Participant ${socketListId.substring(0, 6)}`
+								}
 
-							let css = {minWidth: cssMesure.minWidth, minHeight: cssMesure.minHeight, maxHeight: "100%", margin: "10px",
-								borderStyle: "solid", borderColor: "#bdbdbd", objectFit: "fill"}
-							for(let i in css) video.style[i] = css[i]
+								const updatedParticipants = [...prevState.participants]
+								const existingParticipant = updatedParticipants.find(p => p.socketId === socketListId)
+								if (!existingParticipant) {
+									updatedParticipants.push({
+										socketId: socketListId,
+										username: `Participant ${socketListId.substring(0, 6)}`,
+										audio: true,
+										video: true
+									})
+								}
 
-							video.style.setProperty("width", cssMesure.width)
-							video.style.setProperty("height", cssMesure.height)
-							video.setAttribute('data-socket', socketListId)
-							video.srcObject = event.stream
-							video.autoplay = true
-							video.playsinline = true
-
-							main.appendChild(video)
-						}
+								return {
+									remoteStreams: [...prevState.remoteStreams, newStream],
+									participants: updatedParticipants,
+									participantCount: updatedParticipants.length + 1
+								}
+							}
+						})
 					}
 
 					// Add the local video stream
@@ -593,6 +594,46 @@ class Video extends Component {
 	sendMessage = () => {
 		socket.emit('chat-message', this.state.message, this.state.username)
 		this.setState({ message: "", sender: this.state.username })
+	}
+
+	// Render remote video components
+	renderRemoteVideos = () => {
+		return this.state.remoteStreams.map((remoteStream, index) => (
+			<div key={remoteStream.socketId} className="remote-video-container">
+				<video
+					ref={(video) => {
+						if (video && remoteStream.stream) {
+							video.srcObject = remoteStream.stream
+						}
+					}}
+					autoPlay
+					playsInline
+					className="remote-video"
+				/>
+				<div className="video-overlay">
+					<div className="user-info">
+						<Chip
+							label={remoteStream.username}
+							size="small"
+							className="user-name-chip remote-user-chip"
+						/>
+					</div>
+					<div className="video-controls-overlay">
+						{/* Add mute indicators if needed */}
+					</div>
+				</div>
+			</div>
+		))
+	}
+
+	// Get video grid class based on participant count
+	getVideoGridClass = () => {
+		const totalParticipants = this.state.participantCount
+		if (totalParticipants === 1) return 'video-grid-single'
+		if (totalParticipants === 2) return 'video-grid-two'
+		if (totalParticipants <= 4) return 'video-grid-four'
+		if (totalParticipants <= 6) return 'video-grid-six'
+		return 'video-grid-many'
 	}
 
 	copyUrl = () => {
@@ -894,7 +935,8 @@ class Video extends Component {
 
 						{/* Main Video Area */}
 						<div className="video-grid-container">
-							<div id="main" className="video-grid">
+							<div id="main" className={`video-grid ${this.getVideoGridClass()}`}>
+								{/* Local Video */}
 								<div className="local-video-container">
 									<video
 										id="my-video"
@@ -920,6 +962,9 @@ class Video extends Component {
 										</div>
 									</div>
 								</div>
+
+								{/* Remote Videos */}
+								{this.renderRemoteVideos()}
 							</div>
 						</div>
 
