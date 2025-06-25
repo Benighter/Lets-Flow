@@ -94,7 +94,9 @@ class Video extends Component {
 			controlsTimeout: null,
 			// Video grid management
 			remoteStreams: [],
-			participants: []
+			participants: [],
+			// Store users data from server
+			users: {}
 		}
 		connections = {}
 
@@ -313,9 +315,10 @@ class Video extends Component {
 			})
 
 			socket.on('user-joined', (id, clients, users) => {
-				// Update participant count
+				// Store users data in component state and update participant count
 				this.setState(prevState => ({
-					participantCount: clients.length
+					participantCount: clients.length,
+					users: users || {}
 				}))
 
 				clients.forEach((socketListId) => {
@@ -330,6 +333,10 @@ class Video extends Component {
 					// Wait for their video stream
 					connections[socketListId].onaddstream = (event) => {
 						console.log('Received remote stream from:', socketListId, event.stream)
+						console.log('Stream tracks:', event.stream.getTracks())
+						console.log('Video tracks:', event.stream.getVideoTracks())
+						console.log('Audio tracks:', event.stream.getAudioTracks())
+
 						// Add remote stream to state instead of DOM manipulation
 						this.setState(prevState => {
 							// Check if stream already exists
@@ -337,8 +344,13 @@ class Video extends Component {
 								stream => stream.socketId === socketListId
 							)
 
-							// Get username from users object
-							const username = users && users[socketListId] ? users[socketListId].username : `User ${socketListId.substring(0, 6)}`
+							// Get username from stored users object in state
+							const username = prevState.users && prevState.users[socketListId]
+								? prevState.users[socketListId].username
+								: `User ${socketListId.substring(0, 6)}`
+
+							console.log('Setting username for', socketListId, ':', username)
+							console.log('Available users:', prevState.users)
 
 							if (existingStreamIndex !== -1) {
 								// Update existing stream
@@ -348,6 +360,7 @@ class Video extends Component {
 									stream: event.stream,
 									username: username
 								}
+								console.log('Updated existing stream for:', username)
 								return { remoteStreams: updatedStreams }
 							} else {
 								// Add new stream
@@ -368,6 +381,7 @@ class Video extends Component {
 									})
 								}
 
+								console.log('Added new stream for:', username)
 								return {
 									remoteStreams: [...prevState.remoteStreams, newStream],
 									participants: updatedParticipants,
@@ -613,14 +627,32 @@ class Video extends Component {
 					ref={(video) => {
 						if (video && remoteStream.stream) {
 							console.log('Setting remote video stream for:', remoteStream.username, remoteStream.stream)
+							console.log('Stream tracks:', remoteStream.stream.getTracks())
 							video.srcObject = remoteStream.stream
-							video.play().catch(e => console.log('Video play error:', e))
+
+							// Ensure video plays and handle any errors
+							video.play().then(() => {
+								console.log('Remote video playing successfully for:', remoteStream.username)
+							}).catch(e => {
+								console.log('Video play error for', remoteStream.username, ':', e)
+								// Try to play again after a short delay
+								setTimeout(() => {
+									video.play().catch(err => console.log('Retry play failed:', err))
+								}, 1000)
+							})
 						}
 					}}
 					autoPlay
 					playsInline
 					muted={false}
 					className="remote-video"
+					onLoadedMetadata={(e) => {
+						console.log('Video metadata loaded for:', remoteStream.username)
+						console.log('Video dimensions:', e.target.videoWidth, 'x', e.target.videoHeight)
+					}}
+					onError={(e) => {
+						console.error('Video error for', remoteStream.username, ':', e)
+					}}
 				/>
 				<div className="video-overlay">
 					<div className="user-info">
