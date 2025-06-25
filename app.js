@@ -7,9 +7,29 @@ const path = require("path")
 var xss = require("xss")
 
 var server = http.createServer(app)
-var io = require('socket.io')(server)
+var io = require('socket.io')(server, {
+	cors: {
+		origin: [
+			"http://localhost:3000",
+			"http://localhost:8000",
+			"https://lets-flow-connect-4lnvp13ps-benighters-projects.vercel.app",
+			"https://lets-flow-connect.vercel.app"
+		],
+		credentials: true
+	}
+})
 
-app.use(cors())
+// Configure CORS for production
+const corsOptions = {
+	origin: [
+		"http://localhost:3000",
+		"http://localhost:8000",
+		"https://lets-flow-connect-4lnvp13ps-benighters-projects.vercel.app",
+		"https://lets-flow-connect.vercel.app"
+	],
+	credentials: true
+}
+app.use(cors(corsOptions))
 app.use(bodyParser.json())
 
 if(process.env.NODE_ENV==='production'){
