@@ -265,7 +265,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ![GitHub code size](https://img.shields.io/github/languages/code-size/Benighter/Lets-Flow)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Benighter/Lets-Flow)
 
----
+------
 
 ⭐ **Star this repository if you found it helpful!**
 
