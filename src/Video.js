@@ -32,6 +32,7 @@ import FullscreenExitIcon from '@material-ui/icons/FullscreenExit'
 import PeopleIcon from '@material-ui/icons/People'
 import LinkIcon from '@material-ui/icons/Link'
 import RecordVoiceOverIcon from '@material-ui/icons/RecordVoiceOver'
+import CloseIcon from '@material-ui/icons/Close'
 
 import { message } from 'antd'
 import 'antd/dist/antd.css'
@@ -44,9 +45,11 @@ const server_url = process.env.NODE_ENV === 'production' ? 'https://lets-flow-co
 var connections = {}
 const peerConnectionConfig = {
 	'iceServers': [
-		// { 'urls': 'stun:stun.services.mozilla.com' },
 		{ 'urls': 'stun:stun.l.google.com:19302' },
-	]
+		{ 'urls': 'stun:stun1.l.google.com:19302' },
+		{ 'urls': 'stun:stun2.l.google.com:19302' }
+	],
+	'iceCandidatePoolSize': 10
 }
 var socket = null
 var socketId = null
@@ -283,7 +286,8 @@ class Video extends Component {
 		socket.on('signal', this.gotMessageFromServer)
 
 		socket.on('connect', () => {
-			socket.emit('join-call', window.location.href)
+			// Send username along with join-call
+			socket.emit('join-call', window.location.href, this.state.username)
 			socketId = socket.id
 
 			socket.on('chat-message', this.addMessage)
@@ -308,10 +312,10 @@ class Video extends Component {
 				}
 			})
 
-			socket.on('user-joined', (id, clients) => {
+			socket.on('user-joined', (id, clients, users) => {
 				// Update participant count
 				this.setState(prevState => ({
-					participantCount: clients.length + 1 // +1 for local user
+					participantCount: clients.length
 				}))
 
 				clients.forEach((socketListId) => {
@@ -325,6 +329,7 @@ class Video extends Component {
 
 					// Wait for their video stream
 					connections[socketListId].onaddstream = (event) => {
+						console.log('Received remote stream from:', socketListId, event.stream)
 						// Add remote stream to state instead of DOM manipulation
 						this.setState(prevState => {
 							// Check if stream already exists
@@ -332,12 +337,16 @@ class Video extends Component {
 								stream => stream.socketId === socketListId
 							)
 
+							// Get username from users object
+							const username = users && users[socketListId] ? users[socketListId].username : `User ${socketListId.substring(0, 6)}`
+
 							if (existingStreamIndex !== -1) {
 								// Update existing stream
 								const updatedStreams = [...prevState.remoteStreams]
 								updatedStreams[existingStreamIndex] = {
 									...updatedStreams[existingStreamIndex],
-									stream: event.stream
+									stream: event.stream,
+									username: username
 								}
 								return { remoteStreams: updatedStreams }
 							} else {
@@ -345,7 +354,7 @@ class Video extends Component {
 								const newStream = {
 									socketId: socketListId,
 									stream: event.stream,
-									username: `Participant ${socketListId.substring(0, 6)}`
+									username: username
 								}
 
 								const updatedParticipants = [...prevState.participants]
@@ -353,7 +362,7 @@ class Video extends Component {
 								if (!existingParticipant) {
 									updatedParticipants.push({
 										socketId: socketListId,
-										username: `Participant ${socketListId.substring(0, 6)}`,
+										username: username,
 										audio: true,
 										video: true
 									})
@@ -598,16 +607,19 @@ class Video extends Component {
 
 	// Render remote video components
 	renderRemoteVideos = () => {
-		return this.state.remoteStreams.map((remoteStream, index) => (
+		return this.state.remoteStreams.map((remoteStream) => (
 			<div key={remoteStream.socketId} className="remote-video-container">
 				<video
 					ref={(video) => {
 						if (video && remoteStream.stream) {
+							console.log('Setting remote video stream for:', remoteStream.username, remoteStream.stream)
 							video.srcObject = remoteStream.stream
+							video.play().catch(e => console.log('Video play error:', e))
 						}
 					}}
 					autoPlay
 					playsInline
+					muted={false}
 					className="remote-video"
 				/>
 				<div className="video-overlay">
@@ -1028,6 +1040,72 @@ class Video extends Component {
 								</div>
 							</div>
 						</div>
+
+						{/* Participants Panel */}
+						{this.state.showParticipants && (
+							<div className="participants-panel">
+								<div className="participants-header">
+									<Typography variant="h6" className="participants-title">
+										<PeopleIcon className="participants-icon" />
+										Participants ({this.state.participantCount})
+									</Typography>
+									<IconButton onClick={this.toggleParticipants} size="small">
+										<CloseIcon />
+									</IconButton>
+								</div>
+								<div className="participants-list">
+									{/* Local user */}
+									<div className="participant-item local-participant">
+										<div className="participant-avatar">
+											{this.state.username.charAt(0).toUpperCase()}
+										</div>
+										<div className="participant-info">
+											<Typography variant="body2" className="participant-name">
+												{this.state.username} (You)
+											</Typography>
+											<div className="participant-status">
+												{this.state.audio ? (
+													<MicIcon className="status-icon active" />
+												) : (
+													<MicOffIcon className="status-icon muted" />
+												)}
+												{this.state.video ? (
+													<VideocamIcon className="status-icon active" />
+												) : (
+													<VideocamOffIcon className="status-icon muted" />
+												)}
+											</div>
+										</div>
+									</div>
+
+									{/* Remote participants */}
+									{this.state.participants.map((participant) => (
+										<div key={participant.socketId} className="participant-item">
+											<div className="participant-avatar">
+												{participant.username.charAt(0).toUpperCase()}
+											</div>
+											<div className="participant-info">
+												<Typography variant="body2" className="participant-name">
+													{participant.username}
+												</Typography>
+												<div className="participant-status">
+													{participant.audio ? (
+														<MicIcon className="status-icon active" />
+													) : (
+														<MicOffIcon className="status-icon muted" />
+													)}
+													{participant.video ? (
+														<VideocamIcon className="status-icon active" />
+													) : (
+														<VideocamOffIcon className="status-icon muted" />
+													)}
+												</div>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 
 						{/* Enhanced Chat Modal */}
 						<Modal show={this.state.showModal} onHide={this.closeChat} className="chat-modal">

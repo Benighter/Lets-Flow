@@ -73,28 +73,38 @@ connections = {}
 messages = {}
 timeOnline = {}
 
+// Store user information
+let users = {}
+
 io.on('connection', (socket) => {
 
-	socket.on('join-call', (path) => {
+	socket.on('join-call', (path, username) => {
 		if(connections[path] === undefined){
 			connections[path] = []
 		}
 		connections[path].push(socket.id)
 
+		// Store user info
+		users[socket.id] = {
+			username: username || `User ${socket.id.substring(0, 6)}`,
+			socketId: socket.id
+		}
+
 		timeOnline[socket.id] = new Date()
 
+		// Send user info to all participants
 		for(let a = 0; a < connections[path].length; ++a){
-			io.to(connections[path][a]).emit("user-joined", socket.id, connections[path])
+			io.to(connections[path][a]).emit("user-joined", socket.id, connections[path], users)
 		}
 
 		if(messages[path] !== undefined){
 			for(let a = 0; a < messages[path].length; ++a){
-				io.to(socket.id).emit("chat-message", messages[path][a]['data'], 
+				io.to(socket.id).emit("chat-message", messages[path][a]['data'],
 					messages[path][a]['sender'], messages[path][a]['socket-id-sender'])
 			}
 		}
 
-		console.log(path, connections[path])
+		console.log(path, connections[path], users[socket.id])
 	})
 
 	socket.on('signal', (toId, message) => {
@@ -140,9 +150,12 @@ io.on('connection', (socket) => {
 					for(let a = 0; a < connections[key].length; ++a){
 						io.to(connections[key][a]).emit("user-left", socket.id)
 					}
-			
+
 					var index = connections[key].indexOf(socket.id)
 					connections[key].splice(index, 1)
+
+					// Clean up user info
+					delete users[socket.id]
 
 					console.log(key, socket.id, Math.ceil(diffTime / 1000))
 
