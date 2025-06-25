@@ -2,7 +2,20 @@ import React, { Component } from 'react'
 import io from 'socket.io-client'
 import faker from "faker"
 
-import {IconButton, Badge, Input, Button} from '@material-ui/core'
+import {
+	IconButton,
+	Badge,
+	Input,
+	Button,
+	Tooltip,
+	Slider,
+	Typography,
+	Card,
+	CardContent,
+	Fab,
+	LinearProgress,
+	Chip
+} from '@material-ui/core'
 import VideocamIcon from '@material-ui/icons/Videocam'
 import VideocamOffIcon from '@material-ui/icons/VideocamOff'
 import MicIcon from '@material-ui/icons/Mic'
@@ -11,13 +24,19 @@ import ScreenShareIcon from '@material-ui/icons/ScreenShare'
 import StopScreenShareIcon from '@material-ui/icons/StopScreenShare'
 import CallEndIcon from '@material-ui/icons/CallEnd'
 import ChatIcon from '@material-ui/icons/Chat'
+import SettingsIcon from '@material-ui/icons/Settings'
+import VolumeUpIcon from '@material-ui/icons/VolumeUp'
+import VolumeOffIcon from '@material-ui/icons/VolumeOff'
+import FullscreenIcon from '@material-ui/icons/Fullscreen'
+import FullscreenExitIcon from '@material-ui/icons/FullscreenExit'
+import PeopleIcon from '@material-ui/icons/People'
+import LinkIcon from '@material-ui/icons/Link'
+import RecordVoiceOverIcon from '@material-ui/icons/RecordVoiceOver'
 
 import { message } from 'antd'
 import 'antd/dist/antd.css'
-
-import { Row } from 'reactstrap'
-import Modal from 'react-bootstrap/Modal'
-import 'bootstrap/dist/css/bootstrap.css'
+import { Modal } from 'react-bootstrap'
+import 'bootstrap/dist/css/bootstrap.min.css'
 import "./Video.css"
 
 const server_url = process.env.NODE_ENV === 'production' ? 'https://lets-flow-connect-backend.onrender.com' : "http://localhost:4001"
@@ -38,6 +57,9 @@ class Video extends Component {
 		super(props)
 
 		this.localVideoref = React.createRef()
+		this.audioContextRef = React.createRef()
+		this.analyserRef = React.createRef()
+		this.micTestIntervalRef = React.createRef()
 
 		this.videoAvailable = false
 		this.audioAvailable = false
@@ -53,10 +75,26 @@ class Video extends Component {
 			newmessages: 0,
 			askForUsername: true,
 			username: faker.internet.userName(),
+			// New enhanced UI states
+			isFullscreen: false,
+			showSettings: false,
+			micVolume: 50,
+			speakerVolume: 80,
+			isMicTesting: false,
+			micTestLevel: 0,
+			participantCount: 1,
+			connectionQuality: 'excellent',
+			isRecording: false,
+			showParticipants: false,
+			roomName: '',
+			meetingDuration: 0,
+			showControls: true,
+			controlsTimeout: null
 		}
 		connections = {}
 
 		this.getPermissions()
+		this.startMeetingTimer()
 	}
 
 	getPermissions = async () => {
@@ -384,7 +422,157 @@ class Video extends Component {
 			let tracks = this.localVideoref.current.srcObject.getTracks()
 			tracks.forEach(track => track.stop())
 		} catch (e) {}
+		this.stopMeetingTimer()
 		window.location.href = "/"
+	}
+
+	// New enhanced methods
+	startMeetingTimer = () => {
+		this.meetingTimer = setInterval(() => {
+			this.setState({ meetingDuration: this.state.meetingDuration + 1 })
+		}, 1000)
+	}
+
+	stopMeetingTimer = () => {
+		if (this.meetingTimer) {
+			clearInterval(this.meetingTimer)
+		}
+	}
+
+	formatDuration = (seconds) => {
+		const hours = Math.floor(seconds / 3600)
+		const minutes = Math.floor((seconds % 3600) / 60)
+		const secs = seconds % 60
+		if (hours > 0) {
+			return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+		}
+		return `${minutes}:${secs.toString().padStart(2, '0')}`
+	}
+
+	toggleFullscreen = () => {
+		if (!this.state.isFullscreen) {
+			if (document.documentElement.requestFullscreen) {
+				document.documentElement.requestFullscreen()
+			}
+		} else {
+			if (document.exitFullscreen) {
+				document.exitFullscreen()
+			}
+		}
+		this.setState({ isFullscreen: !this.state.isFullscreen })
+	}
+
+	toggleSettings = () => {
+		this.setState({ showSettings: !this.state.showSettings })
+	}
+
+	handleMicVolumeChange = (event, newValue) => {
+		this.setState({ micVolume: newValue })
+		// Apply microphone gain
+		if (window.localStream) {
+			const audioTracks = window.localStream.getAudioTracks()
+			if (audioTracks.length > 0) {
+				// Note: This is a simplified implementation
+				// In a real app, you'd use Web Audio API for proper gain control
+			}
+		}
+	}
+
+	handleSpeakerVolumeChange = (event, newValue) => {
+		this.setState({ speakerVolume: newValue })
+		// Apply speaker volume to all remote videos
+		const videos = document.querySelectorAll('video:not(#my-video)')
+		videos.forEach(video => {
+			video.volume = newValue / 100
+		})
+	}
+
+	startMicTest = () => {
+		if (this.state.isMicTesting) {
+			this.stopMicTest()
+			return
+		}
+
+		this.setState({ isMicTesting: true })
+
+		navigator.mediaDevices.getUserMedia({ audio: true })
+			.then(stream => {
+				const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+				const analyser = audioContext.createAnalyser()
+				const microphone = audioContext.createMediaStreamSource(stream)
+				const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+				microphone.connect(analyser)
+				analyser.fftSize = 256
+
+				const updateMicLevel = () => {
+					if (!this.state.isMicTesting) return
+
+					analyser.getByteFrequencyData(dataArray)
+					const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+					this.setState({ micTestLevel: Math.min(100, (average / 128) * 100) })
+
+					requestAnimationFrame(updateMicLevel)
+				}
+
+				updateMicLevel()
+
+				// Store references for cleanup
+				this.audioContextRef.current = audioContext
+				this.analyserRef.current = analyser
+				this.micTestStream = stream
+			})
+			.catch(err => {
+				console.error('Error accessing microphone:', err)
+				this.setState({ isMicTesting: false })
+			})
+	}
+
+	stopMicTest = () => {
+		this.setState({ isMicTesting: false, micTestLevel: 0 })
+
+		if (this.micTestStream) {
+			this.micTestStream.getTracks().forEach(track => track.stop())
+		}
+
+		if (this.audioContextRef.current) {
+			this.audioContextRef.current.close()
+		}
+	}
+
+	toggleParticipants = () => {
+		this.setState({ showParticipants: !this.state.showParticipants })
+	}
+
+	showControlsTemporarily = () => {
+		this.setState({ showControls: true })
+
+		if (this.state.controlsTimeout) {
+			clearTimeout(this.state.controlsTimeout)
+		}
+
+		const timeout = setTimeout(() => {
+			this.setState({ showControls: false })
+		}, 3000)
+
+		this.setState({ controlsTimeout: timeout })
+	}
+
+	componentDidMount() {
+		// Auto-hide controls after 3 seconds of inactivity
+		document.addEventListener('mousemove', this.showControlsTemporarily)
+		document.addEventListener('keydown', this.showControlsTemporarily)
+	}
+
+	componentWillUnmount() {
+		this.stopMeetingTimer()
+		this.stopMicTest()
+		document.removeEventListener('mousemove', this.showControlsTemporarily)
+		document.removeEventListener('keydown', this.showControlsTemporarily)
+
+		if (this.state.controlsTimeout) {
+			clearTimeout(this.state.controlsTimeout)
+		}
 	}
 
 	openChat = () => this.setState({ showModal: true, newmessages: 0 })
@@ -445,86 +633,419 @@ class Video extends Component {
 	render() {
 		if(this.isChrome() === false){
 			return (
-				<div style={{background: "white", width: "30%", height: "auto", padding: "20px", minWidth: "400px",
-						textAlign: "center", margin: "auto", marginTop: "50px", justifyContent: "center"}}>
-					<h1>Sorry, this works only with Google Chrome</h1>
+				<div className="browser-warning">
+					<Card elevation={3} className="warning-card">
+						<CardContent>
+							<Typography variant="h4" className="warning-title">
+								Browser Not Supported
+							</Typography>
+							<Typography variant="body1" className="warning-text">
+								Let's Flow Connect works best with Google Chrome for optimal video calling experience.
+							</Typography>
+							<Button
+								variant="contained"
+								color="primary"
+								onClick={() => window.open('https://www.google.com/chrome/', '_blank')}
+								className="download-chrome-btn"
+							>
+								Download Chrome
+							</Button>
+						</CardContent>
+					</Card>
 				</div>
 			)
 		}
 		return (
-			<div>
+			<div className="meeting-container">
 				{this.state.askForUsername === true ?
-					<div>
-						<div style={{background: "white", width: "30%", height: "auto", padding: "20px", minWidth: "400px",
-								textAlign: "center", margin: "auto", marginTop: "50px", justifyContent: "center"}}>
-							<p style={{ margin: 0, fontWeight: "bold", paddingRight: "50px" }}>Set your username</p>
-							<Input placeholder="Username" value={this.state.username} onChange={e => this.handleUsername(e)} />
-							<Button variant="contained" color="primary" onClick={this.connect} style={{ margin: "20px" }}>Connect</Button>
-						</div>
+					<div className="pre-meeting-setup">
+						<div className="setup-card-container">
+							<Card elevation={6} className="setup-card">
+								<CardContent className="setup-content">
+									<Typography variant="h4" className="setup-title">
+										Join Meeting Room
+									</Typography>
+									<Typography variant="body2" className="setup-subtitle">
+										Set your display name and test your devices
+									</Typography>
 
-						<div style={{ justifyContent: "center", textAlign: "center", paddingTop: "40px" }}>
-							<video id="my-video" ref={this.localVideoref} autoPlay muted style={{
-								borderStyle: "solid",borderColor: "#bdbdbd",objectFit: "fill",width: "60%",height: "30%"}}></video>
+									<div className="username-section">
+										<Input
+											placeholder="Enter your name"
+											value={this.state.username}
+											onChange={e => this.handleUsername(e)}
+											className="username-input"
+											fullWidth
+											disableUnderline
+										/>
+									</div>
+
+									<div className="device-preview">
+										<div className="video-preview-container">
+											<video
+												id="preview-video"
+												ref={this.localVideoref}
+												autoPlay
+												muted
+												className="video-preview"
+											></video>
+											<div className="preview-overlay">
+												<Chip
+													icon={<RecordVoiceOverIcon />}
+													label={this.state.username || 'Guest User'}
+													className="user-chip"
+												/>
+											</div>
+										</div>
+									</div>
+
+									<div className="device-controls">
+										<div className="control-group">
+											<Tooltip title={this.state.video ? "Turn off camera" : "Turn on camera"}>
+												<IconButton
+													onClick={this.handleVideo}
+													className={`control-btn ${this.state.video ? 'active' : 'inactive'}`}
+												>
+													{this.state.video ? <VideocamIcon /> : <VideocamOffIcon />}
+												</IconButton>
+											</Tooltip>
+
+											<Tooltip title={this.state.audio ? "Mute microphone" : "Unmute microphone"}>
+												<IconButton
+													onClick={this.handleAudio}
+													className={`control-btn ${this.state.audio ? 'active' : 'inactive'}`}
+												>
+													{this.state.audio ? <MicIcon /> : <MicOffIcon />}
+												</IconButton>
+											</Tooltip>
+
+											<Tooltip title="Test microphone">
+												<IconButton
+													onClick={this.startMicTest}
+													className={`control-btn ${this.state.isMicTesting ? 'testing' : ''}`}
+												>
+													<VolumeUpIcon />
+												</IconButton>
+											</Tooltip>
+										</div>
+
+										{this.state.isMicTesting && (
+											<div className="mic-test-section">
+												<Typography variant="body2" className="mic-test-label">
+													Microphone Test - Speak now
+												</Typography>
+												<LinearProgress
+													variant="determinate"
+													value={this.state.micTestLevel}
+													className="mic-level-bar"
+												/>
+												<Typography variant="caption" className="mic-test-instruction">
+													{this.state.micTestLevel > 10 ? 'Great! Your microphone is working' : 'Speak louder to test your microphone'}
+												</Typography>
+											</div>
+										)}
+									</div>
+
+									<Button
+										variant="contained"
+										color="primary"
+										onClick={this.connect}
+										className="join-meeting-btn"
+										size="large"
+										disabled={!this.state.username.trim()}
+									>
+										Join Meeting
+									</Button>
+								</CardContent>
+							</Card>
 						</div>
 					</div>
 					:
-					<div>
-						<div className="btn-down" style={{ backgroundColor: "whitesmoke", color: "whitesmoke", textAlign: "center" }}>
-							<IconButton style={{ color: "#424242" }} onClick={this.handleVideo}>
-								{(this.state.video === true) ? <VideocamIcon /> : <VideocamOffIcon />}
-							</IconButton>
+					<div className="main-meeting-interface">
+						{/* Top Bar */}
+						<div className={`meeting-header ${this.state.showControls ? 'visible' : 'hidden'}`}>
+							<div className="meeting-info">
+								<Typography variant="h6" className="meeting-title">
+									Let's Flow Connect
+								</Typography>
+								<div className="meeting-stats">
+									<Chip
+										icon={<PeopleIcon />}
+										label={`${this.state.participantCount} participant${this.state.participantCount !== 1 ? 's' : ''}`}
+										size="small"
+										className="participant-chip"
+									/>
+									<Chip
+										label={this.formatDuration(this.state.meetingDuration)}
+										size="small"
+										className="duration-chip"
+									/>
+									<Chip
+										label={this.state.connectionQuality}
+										size="small"
+										className={`quality-chip ${this.state.connectionQuality}`}
+									/>
+								</div>
+							</div>
 
-							<IconButton style={{ color: "#f44336" }} onClick={this.handleEndCall}>
-								<CallEndIcon />
-							</IconButton>
+							<div className="header-actions">
+								<Tooltip title="Meeting Link">
+									<IconButton onClick={this.copyUrl} className="header-btn">
+										<LinkIcon />
+									</IconButton>
+								</Tooltip>
 
-							<IconButton style={{ color: "#424242" }} onClick={this.handleAudio}>
-								{this.state.audio === true ? <MicIcon /> : <MicOffIcon />}
-							</IconButton>
+								<Tooltip title="Participants">
+									<IconButton onClick={this.toggleParticipants} className="header-btn">
+										<Badge badgeContent={this.state.participantCount} color="primary">
+											<PeopleIcon />
+										</Badge>
+									</IconButton>
+								</Tooltip>
 
-							{this.state.screenAvailable === true ?
-								<IconButton style={{ color: "#424242" }} onClick={this.handleScreen}>
-									{this.state.screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
-								</IconButton>
-								: null}
+								<Tooltip title="Settings">
+									<IconButton onClick={this.toggleSettings} className="header-btn">
+										<SettingsIcon />
+									</IconButton>
+								</Tooltip>
 
-							<Badge badgeContent={this.state.newmessages} max={999} color="secondary" onClick={this.openChat}>
-								<IconButton style={{ color: "#424242" }} onClick={this.openChat}>
-									<ChatIcon />
-								</IconButton>
-							</Badge>
+								<Tooltip title={this.state.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+									<IconButton onClick={this.toggleFullscreen} className="header-btn">
+										{this.state.isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+									</IconButton>
+								</Tooltip>
+							</div>
 						</div>
 
-						<Modal show={this.state.showModal} onHide={this.closeChat} style={{ zIndex: "999999" }}>
-							<Modal.Header closeButton>
-								<Modal.Title>Chat Room</Modal.Title>
-							</Modal.Header>
-							<Modal.Body style={{ overflow: "auto", overflowY: "auto", height: "400px", textAlign: "left" }} >
-								{this.state.messages.length > 0 ? this.state.messages.map((item, index) => (
-									<div key={index} style={{textAlign: "left"}}>
-										<p style={{ wordBreak: "break-all" }}><b>{item.sender}</b>: {item.data}</p>
+						{/* Settings Panel */}
+						{this.state.showSettings && (
+							<Card className="settings-panel" elevation={8}>
+								<CardContent>
+									<Typography variant="h6" className="settings-title">
+										Audio & Video Settings
+									</Typography>
+
+									<div className="setting-group">
+										<Typography variant="body2" className="setting-label">
+											Microphone Volume
+										</Typography>
+										<div className="volume-control">
+											<VolumeOffIcon className="volume-icon" />
+											<Slider
+												value={this.state.micVolume}
+												onChange={this.handleMicVolumeChange}
+												className="volume-slider"
+												min={0}
+												max={100}
+											/>
+											<VolumeUpIcon className="volume-icon" />
+											<Typography variant="caption" className="volume-value">
+												{this.state.micVolume}%
+											</Typography>
+										</div>
 									</div>
-								)) : <p>No message yet</p>}
+
+									<div className="setting-group">
+										<Typography variant="body2" className="setting-label">
+											Speaker Volume
+										</Typography>
+										<div className="volume-control">
+											<VolumeOffIcon className="volume-icon" />
+											<Slider
+												value={this.state.speakerVolume}
+												onChange={this.handleSpeakerVolumeChange}
+												className="volume-slider"
+												min={0}
+												max={100}
+											/>
+											<VolumeUpIcon className="volume-icon" />
+											<Typography variant="caption" className="volume-value">
+												{this.state.speakerVolume}%
+											</Typography>
+										</div>
+									</div>
+
+									<div className="setting-group">
+										<Button
+											variant={this.state.isMicTesting ? "contained" : "outlined"}
+											onClick={this.startMicTest}
+											className="mic-test-btn"
+											startIcon={<RecordVoiceOverIcon />}
+										>
+											{this.state.isMicTesting ? 'Stop Mic Test' : 'Test Microphone'}
+										</Button>
+
+										{this.state.isMicTesting && (
+											<div className="mic-test-display">
+												<LinearProgress
+													variant="determinate"
+													value={this.state.micTestLevel}
+													className="mic-level-indicator"
+												/>
+												<Typography variant="caption">
+													Mic Level: {Math.round(this.state.micTestLevel)}%
+												</Typography>
+											</div>
+										)}
+									</div>
+								</CardContent>
+							</Card>
+						)}
+
+						{/* Main Video Area */}
+						<div className="video-grid-container">
+							<div id="main" className="video-grid">
+								<div className="local-video-container">
+									<video
+										id="my-video"
+										ref={this.localVideoref}
+										autoPlay
+										muted
+										className="local-video"
+									></video>
+									<div className="video-overlay">
+										<div className="user-info">
+											<Chip
+												label={`${this.state.username} (You)`}
+												size="small"
+												className="user-name-chip"
+											/>
+										</div>
+										<div className="video-controls-overlay">
+											{!this.state.audio && (
+												<div className="muted-indicator">
+													<MicOffIcon className="muted-icon" />
+												</div>
+											)}
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Bottom Controls */}
+						<div className={`meeting-controls ${this.state.showControls ? 'visible' : 'hidden'}`}>
+							<div className="controls-container">
+								<div className="primary-controls">
+									<Tooltip title={this.state.audio ? "Mute microphone" : "Unmute microphone"}>
+										<Fab
+											onClick={this.handleAudio}
+											className={`control-fab ${this.state.audio ? 'active' : 'muted'}`}
+											size="medium"
+										>
+											{this.state.audio ? <MicIcon /> : <MicOffIcon />}
+										</Fab>
+									</Tooltip>
+
+									<Tooltip title="End call">
+										<Fab
+											onClick={this.handleEndCall}
+											className="control-fab end-call"
+											size="large"
+										>
+											<CallEndIcon />
+										</Fab>
+									</Tooltip>
+
+									<Tooltip title={this.state.video ? "Turn off camera" : "Turn on camera"}>
+										<Fab
+											onClick={this.handleVideo}
+											className={`control-fab ${this.state.video ? 'active' : 'inactive'}`}
+											size="medium"
+										>
+											{this.state.video ? <VideocamIcon /> : <VideocamOffIcon />}
+										</Fab>
+									</Tooltip>
+								</div>
+
+								<div className="secondary-controls">
+									{this.state.screenAvailable && (
+										<Tooltip title={this.state.screen ? "Stop sharing" : "Share screen"}>
+											<IconButton
+												onClick={this.handleScreen}
+												className={`secondary-control-btn ${this.state.screen ? 'active' : ''}`}
+											>
+												{this.state.screen ? <StopScreenShareIcon /> : <ScreenShareIcon />}
+											</IconButton>
+										</Tooltip>
+									)}
+
+									<Tooltip title="Chat">
+										<IconButton
+											onClick={this.openChat}
+											className="secondary-control-btn"
+										>
+											<Badge badgeContent={this.state.newmessages} color="error">
+												<ChatIcon />
+											</Badge>
+										</IconButton>
+									</Tooltip>
+								</div>
+							</div>
+						</div>
+
+						{/* Enhanced Chat Modal */}
+						<Modal show={this.state.showModal} onHide={this.closeChat} className="chat-modal">
+							<Modal.Header closeButton className="chat-header">
+								<Modal.Title className="chat-title">
+									<ChatIcon className="chat-icon" />
+									Meeting Chat
+								</Modal.Title>
+							</Modal.Header>
+							<Modal.Body className="chat-body">
+								<div className="messages-container">
+									{this.state.messages.length > 0 ? this.state.messages.map((item, index) => (
+										<div key={index} className="message-item">
+											<div className="message-header">
+												<span className="message-sender">{item.sender}</span>
+												<span className="message-time">
+													{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+												</span>
+											</div>
+											<div className="message-content">
+												{item.data}
+											</div>
+										</div>
+									)) : (
+										<div className="no-messages">
+											<ChatIcon className="no-messages-icon" />
+											<Typography variant="body2">No messages yet</Typography>
+											<Typography variant="caption">Start the conversation!</Typography>
+										</div>
+									)}
+								</div>
 							</Modal.Body>
-							<Modal.Footer className="div-send-msg">
-								<Input placeholder="Message" value={this.state.message} onChange={e => this.handleMessage(e)} />
-								<Button variant="contained" color="primary" onClick={this.sendMessage}>Send</Button>
+							<Modal.Footer className="chat-footer">
+								<div className="message-input-container">
+									<Input
+										placeholder="Type your message..."
+										value={this.state.message}
+										onChange={e => this.handleMessage(e)}
+										className="message-input"
+										fullWidth
+										disableUnderline
+										onKeyPress={(e) => {
+											if (e.key === 'Enter') {
+												this.sendMessage()
+											}
+										}}
+									/>
+									<Button
+										variant="contained"
+										color="primary"
+										onClick={this.sendMessage}
+										className="send-button"
+										disabled={!this.state.message.trim()}
+									>
+										Send
+									</Button>
+								</div>
 							</Modal.Footer>
 						</Modal>
 
-						<div className="container">
-							<div style={{ paddingTop: "20px" }}>
-								<Input value={window.location.href} disable="true"></Input>
-								<Button style={{backgroundColor: "#3f51b5",color: "whitesmoke",marginLeft: "20px",
-									marginTop: "10px",width: "120px",fontSize: "10px"
-								}} onClick={this.copyUrl}>Copy invite link</Button>
-							</div>
-
-							<Row id="main" className="flex-container" style={{ margin: 0, padding: 0 }}>
-								<video id="my-video" ref={this.localVideoref} autoPlay muted style={{
-									borderStyle: "solid",borderColor: "#bdbdbd",margin: "10px",objectFit: "fill",
-									width: "100%",height: "100%"}}></video>
-							</Row>
+						{/* Meeting Link Display (Hidden but accessible) */}
+						<div className="meeting-link-hidden">
+							<Input value={window.location.href} style={{ display: 'none' }} />
 						</div>
 					</div>
 				}

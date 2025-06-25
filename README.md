@@ -1,17 +1,17 @@
-# 🎥 Lets Flow - Video Meeting App
+# 🎥 Let's Flow Connect - Video Meeting App
 
 [![GitHub stars](https://img.shields.io/github/stars/Benighter/Lets-Flow?style=social)](https://github.com/Benighter/Lets-Flow/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Benighter/Lets-Flow?style=social)](https://github.com/Benighter/Lets-Flow/network/members)
 [![GitHub issues](https://img.shields.io/github/issues/Benighter/Lets-Flow)](https://github.com/Benighter/Lets-Flow/issues)
 [![GitHub license](https://img.shields.io/github/license/Benighter/Lets-Flow)](https://github.com/Benighter/Lets-Flow/blob/main/LICENSE)
 
-A modern, feature-rich video conferencing application built with React.js and Node.js. **Lets Flow** is a complete Google Meet/Zoom clone that enables seamless video communication with real-time chat, screen sharing, and peer-to-peer connectivity.
+A modern, feature-rich video conferencing application built with React.js and Node.js. **Let's Flow Connect** is a complete Google Meet/Zoom clone that enables seamless video communication with real-time chat, screen sharing, and peer-to-peer connectivity.
 
 ![Lets Flow Demo](https://i.imgur.com/HhZD01o.jpg)
 
 ## 🌟 Live Demo
 
-Experience **Lets Flow** in action: [Coming Soon - Deploy Link]
+Experience **Let's Flow Connect** in action: [Coming Soon - Deploy Link]
 
 ## ✨ Features
 
@@ -107,7 +107,7 @@ Experience **Lets Flow** in action: [Coming Soon - Deploy Link]
 ## 📁 Project Structure
 
 ```
-Lets-Flow/
+Lets-Flow-Connect/
 ├── public/                 # Static files
 ├── src/                   # React frontend source code
 │   ├── App.js            # Main application component
@@ -247,11 +247,30 @@ We welcome contributions from the community! Here's how you can help:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👨‍💻 Author
+## 👨‍💻 About the Developer
 
-**Bennet Nkolele (Benighter)**
-- GitHub: [@Benighter](https://github.com/Benighter)
-- Email: 111303968+Benighter@users.noreply.github.com
+**Bennet Nkolele**
+
+I'm a passionate full-stack developer who loves creating innovative web applications and solving complex problems through code. Let's Flow Connect represents my commitment to building modern, user-friendly solutions for real-world communication needs.
+
+### 🔗 Connect with Me
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=todoist&logoColor=white)](https://react-personal-portfolio-alpha.vercel.app/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/bennet-nkolele)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Benighter)
+
+- 🌐 **Portfolio**: [react-personal-portfolio-alpha.vercel.app](https://react-personal-portfolio-alpha.vercel.app/)
+- 💼 **LinkedIn**: [linkedin.com/in/bennet-nkolele](https://www.linkedin.com/in/bennet-nkolele)
+- 💻 **GitHub**: [github.com/Benighter](https://github.com/Benighter)
+
+### 💡 What I Do
+
+- **Frontend Development**: React.js, JavaScript, HTML5, CSS3, Material-UI
+- **Backend Development**: Node.js, Express.js, Socket.IO, RESTful APIs
+- **Real-time Applications**: WebRTC, Socket.IO, Peer-to-peer connections
+- **Deployment & DevOps**: Vercel, Heroku, DigitalOcean, CI/CD pipelines
+
+*Feel free to reach out for collaborations, opportunities, or just to connect!*
 
 ## 🙏 Acknowledgments
 
