@@ -1,10 +1,10 @@
 {
-  "short_name": "Video Meeting",
-  "name": "Video Meeting",
-  "start_url": "https://video.sebastienbiollo.com",
+  "short_name": "Let's Flow Connect",
+  "name": "Let's Flow Connect",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
+  "theme_color": "#3f51b5",
+  "background_color": "#f5f5f5",
   "icons": [
     {
       "src": "icon.png",

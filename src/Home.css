@@ -1,16 +1,336 @@
 html, body {
   	height: 100%;
+	margin: 0;
+	padding: 0;
+	font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
 }
+
 body {
 	margin: 0;
 	text-align: center;
 	background-color: whitesmoke;
+	overflow-x: hidden;
 }
 
-.container2 {
-	padding-top: 30px;
-	margin: auto;
+/* Landing Container */
+.landing-container {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+}
+
+/* Hero Section */
+.hero-section {
+	flex: 1;
+	display: flex;
 	align-items: center;
 	justify-content: center;
+	padding: 60px 20px 40px;
 	text-align: center;
+}
+
+.hero-content {
+	max-width: 800px;
+	width: 100%;
+}
+
+.logo-section {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+}
+
+.logo-icon {
+	font-size: 4rem !important;
+	color: #3f51b5;
+	margin-right: 15px;
+	animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+	0% { transform: scale(1); }
+	50% { transform: scale(1.05); }
+	100% { transform: scale(1); }
+}
+
+.app-title {
+	font-size: 3.5rem;
+	font-weight: 300;
+	color: #333;
+	margin: 0;
+	background: linear-gradient(45deg, #3f51b5, #2196f3);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.app-subtitle {
+	font-size: 1.3rem;
+	color: #666;
+	margin: 20px 0 30px;
+	line-height: 1.6;
+	font-weight: 300;
+}
+
+.feature-chips {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 30px;
+}
+
+.feature-chip {
+	background: rgba(63, 81, 181, 0.1) !important;
+	color: #3f51b5 !important;
+	border: 1px solid rgba(63, 81, 181, 0.3) !important;
+	transition: all 0.3s ease !important;
+}
+
+.feature-chip:hover {
+	background: rgba(63, 81, 181, 0.2) !important;
+	transform: translateY(-2px);
+}
+
+/* Action Section */
+.action-section {
+	padding: 40px 20px;
+	background: rgba(255, 255, 255, 0.3);
+	backdrop-filter: blur(10px);
+}
+
+.action-card {
+	height: 100%;
+	transition: all 0.3s ease !important;
+	border-radius: 16px !important;
+	border: 1px solid rgba(255, 255, 255, 0.2) !important;
+	background: rgba(255, 255, 255, 0.9) !important;
+	backdrop-filter: blur(10px) !important;
+}
+
+.action-card:hover {
+	transform: translateY(-8px) !important;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+.card-content {
+	padding: 40px 30px !important;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	height: 100%;
+	justify-content: space-between;
+}
+
+.card-icon {
+	font-size: 4rem !important;
+	margin-bottom: 20px;
+	transition: all 0.3s ease;
+}
+
+.start-icon {
+	color: #4caf50;
+}
+
+.join-icon {
+	color: #2196f3;
+}
+
+.card-title {
+	font-weight: 500 !important;
+	margin-bottom: 15px !important;
+	color: #333 !important;
+}
+
+.card-description {
+	color: #666 !important;
+	margin-bottom: 30px !important;
+	line-height: 1.6 !important;
+}
+
+.primary-button {
+	background: linear-gradient(45deg, #3f51b5, #2196f3) !important;
+	color: white !important;
+	border-radius: 25px !important;
+	padding: 12px 30px !important;
+	font-weight: 500 !important;
+	text-transform: none !important;
+	box-shadow: 0 4px 15px rgba(63, 81, 181, 0.3) !important;
+	transition: all 0.3s ease !important;
+	min-width: 140px !important;
+}
+
+.primary-button:hover {
+	transform: translateY(-2px) !important;
+	box-shadow: 0 6px 20px rgba(63, 81, 181, 0.4) !important;
+}
+
+.secondary-button {
+	border: 2px solid #3f51b5 !important;
+	color: #3f51b5 !important;
+	border-radius: 25px !important;
+	padding: 10px 30px !important;
+	font-weight: 500 !important;
+	text-transform: none !important;
+	transition: all 0.3s ease !important;
+	min-width: 140px !important;
+}
+
+.secondary-button:hover {
+	background: rgba(63, 81, 181, 0.1) !important;
+	transform: translateY(-2px) !important;
+}
+
+.form-section {
+	width: 100%;
+	margin-top: 20px;
+}
+
+.form-text {
+	color: #666 !important;
+	margin-bottom: 20px !important;
+}
+
+.meeting-input {
+	background: rgba(255, 255, 255, 0.8) !important;
+	border-radius: 25px !important;
+	padding: 15px 20px !important;
+	margin-bottom: 20px !important;
+	border: 2px solid rgba(63, 81, 181, 0.2) !important;
+	transition: all 0.3s ease !important;
+}
+
+.meeting-input:focus {
+	border-color: #3f51b5 !important;
+	background: white !important;
+}
+
+.button-group {
+	display: flex;
+	gap: 15px;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+/* Features Section */
+.features-section {
+	padding: 60px 20px;
+	background: rgba(255, 255, 255, 0.5);
+}
+
+.features-title {
+	text-align: center;
+	color: #333 !important;
+	margin-bottom: 50px !important;
+	font-weight: 300 !important;
+}
+
+.feature-item {
+	text-align: center;
+	padding: 30px 20px;
+	transition: all 0.3s ease;
+	border-radius: 12px;
+}
+
+.feature-item:hover {
+	transform: translateY(-5px);
+	background: rgba(255, 255, 255, 0.8);
+	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.feature-icon {
+	font-size: 3rem !important;
+	color: #3f51b5;
+	margin-bottom: 15px;
+	transition: all 0.3s ease;
+}
+
+.feature-item:hover .feature-icon {
+	transform: scale(1.1);
+}
+
+.feature-name {
+	color: #333 !important;
+	margin-bottom: 10px !important;
+	font-weight: 500 !important;
+}
+
+.feature-desc {
+	color: #666 !important;
+	line-height: 1.6 !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.app-title {
+		font-size: 2.5rem;
+	}
+
+	.logo-icon {
+		font-size: 3rem !important;
+		margin-right: 10px;
+	}
+
+	.app-subtitle {
+		font-size: 1.1rem;
+	}
+
+	.hero-section {
+		padding: 40px 15px 30px;
+	}
+
+	.action-section {
+		padding: 30px 15px;
+	}
+
+	.card-content {
+		padding: 30px 20px !important;
+	}
+
+	.features-section {
+		padding: 40px 15px;
+	}
+
+	.logo-section {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.logo-icon {
+		margin-right: 0;
+		margin-bottom: 10px;
+	}
+}
+
+@media (max-width: 480px) {
+	.app-title {
+		font-size: 2rem;
+	}
+
+	.app-subtitle {
+		font-size: 1rem;
+	}
+
+	.card-content {
+		padding: 25px 15px !important;
+	}
+
+	.primary-button,
+	.secondary-button {
+		min-width: 120px !important;
+		padding: 10px 20px !important;
+	}
+
+	.button-group {
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.meeting-input {
+		padding: 12px 15px !important;
+	}
 }
