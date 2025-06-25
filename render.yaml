@@ -1,16 +1,10 @@
 services:
   - type: web
     name: lets-flow-connect-backend
-    env: node
+    runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --legacy-peer-deps
     startCommand: npm run server
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        fromService:
-          type: web
-          name: lets-flow-connect-backend
-          property: port
-    healthCheckPath: /
