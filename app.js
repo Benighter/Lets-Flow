@@ -1,3 +1,8 @@
+// Set NODE_ENV if not already set
+if (!process.env.NODE_ENV) {
+	process.env.NODE_ENV = 'production'
+}
+
 const express = require('express')
 const http = require('http')
 var cors = require('cors')
