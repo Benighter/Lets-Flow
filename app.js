@@ -84,19 +84,34 @@ io.on('connection', (socket) => {
 		}
 		connections[path].push(socket.id)
 
-		// Store user info
+		// Store user info with better validation
+		const finalUsername = username && username.trim() !== ''
+			? username.trim()
+			: `User ${socket.id.substring(0, 6)}`
+
 		users[socket.id] = {
-			username: username || `User ${socket.id.substring(0, 6)}`,
-			socketId: socket.id
+			username: finalUsername,
+			socketId: socket.id,
+			joinedAt: new Date(),
+			room: path
 		}
 
 		timeOnline[socket.id] = new Date()
 
-		// Send user info to all participants
+		console.log('User joined:', {
+			socketId: socket.id,
+			username: finalUsername,
+			room: path,
+			totalInRoom: connections[path].length
+		})
+
+		// Send user info to all participants with enhanced logging
 		for(let a = 0; a < connections[path].length; ++a){
+			console.log('Sending user-joined to:', connections[path][a], 'with users:', users)
 			io.to(connections[path][a]).emit("user-joined", socket.id, connections[path], users)
 		}
 
+		// Send existing messages to new user
 		if(messages[path] !== undefined){
 			for(let a = 0; a < messages[path].length; ++a){
 				io.to(socket.id).emit("chat-message", messages[path][a]['data'],
@@ -104,7 +119,11 @@ io.on('connection', (socket) => {
 			}
 		}
 
-		console.log(path, connections[path], users[socket.id])
+		console.log('Room state:', {
+			path: path,
+			connections: connections[path],
+			users: Object.keys(users).map(id => ({ id, username: users[id].username }))
+		})
 	})
 
 	socket.on('signal', (toId, message) => {

@@ -47,9 +47,30 @@ const peerConnectionConfig = {
 	'iceServers': [
 		{ 'urls': 'stun:stun.l.google.com:19302' },
 		{ 'urls': 'stun:stun1.l.google.com:19302' },
-		{ 'urls': 'stun:stun2.l.google.com:19302' }
+		{ 'urls': 'stun:stun2.l.google.com:19302' },
+		{ 'urls': 'stun:stun3.l.google.com:19302' },
+		{ 'urls': 'stun:stun4.l.google.com:19302' },
+		// Add free TURN servers for better cross-network connectivity
+		{
+			'urls': 'turn:openrelay.metered.ca:80',
+			'username': 'openrelayproject',
+			'credential': 'openrelayproject'
+		},
+		{
+			'urls': 'turn:openrelay.metered.ca:443',
+			'username': 'openrelayproject',
+			'credential': 'openrelayproject'
+		},
+		{
+			'urls': 'turn:openrelay.metered.ca:443?transport=tcp',
+			'username': 'openrelayproject',
+			'credential': 'openrelayproject'
+		}
 	],
-	'iceCandidatePoolSize': 10
+	'iceCandidatePoolSize': 10,
+	'iceTransportPolicy': 'all',
+	'bundlePolicy': 'max-bundle',
+	'rtcpMuxPolicy': 'require'
 }
 var socket = null
 var socketId = null
@@ -102,6 +123,9 @@ class Video extends Component {
 
 		this.getPermissions()
 		this.startMeetingTimer()
+
+		// Make debug function available globally for testing
+		window.debugParticipants = () => this.debugParticipantState()
 	}
 
 	getPermissions = async () => {
@@ -282,13 +306,28 @@ class Video extends Component {
 
 
 
+	// Debug function to log current state
+	debugParticipantState = () => {
+		console.log('=== PARTICIPANT DEBUG STATE ===')
+		console.log('Socket ID:', socketId)
+		console.log('Username:', this.state.username)
+		console.log('Participant Count:', this.state.participantCount)
+		console.log('Users in state:', this.state.users)
+		console.log('Remote Streams:', this.state.remoteStreams.map(s => ({ socketId: s.socketId, username: s.username })))
+		console.log('Participants:', this.state.participants.map(p => ({ socketId: p.socketId, username: p.username })))
+		console.log('Connections:', Object.keys(connections))
+		console.log('================================')
+	}
+
 	connectToSocketServer = () => {
 		socket = io.connect(server_url, { secure: true })
 
 		socket.on('signal', this.gotMessageFromServer)
 
 		socket.on('connect', () => {
+			console.log('Connected to server with socket ID:', socket.id)
 			// Send username along with join-call
+			console.log('Joining call with username:', this.state.username)
 			socket.emit('join-call', window.location.href, this.state.username)
 			socketId = socket.id
 
@@ -315,19 +354,45 @@ class Video extends Component {
 			})
 
 			socket.on('user-joined', (id, clients, users) => {
+				console.log('User joined event:', { id, clients, users })
+
 				// Store users data in component state and update participant count
-				this.setState(prevState => ({
-					participantCount: clients.length,
-					users: users || {}
-				}))
+				this.setState(prevState => {
+					console.log('Previous state users:', prevState.users)
+					console.log('New users from server:', users)
+
+					return {
+						participantCount: clients.length,
+						users: users || {}
+					}
+				}, () => {
+					// Debug state after update
+					this.debugParticipantState()
+				})
 
 				clients.forEach((socketListId) => {
+					if (socketListId === socketId) return // Skip self
+
+					console.log('Setting up connection for:', socketListId)
 					connections[socketListId] = new RTCPeerConnection(peerConnectionConfig)
-					// Wait for their ice candidate
+
+					// Enhanced ICE candidate handling
 					connections[socketListId].onicecandidate = function (event) {
 						if (event.candidate != null) {
+							console.log('Sending ICE candidate to:', socketListId, event.candidate)
 							socket.emit('signal', socketListId, JSON.stringify({ 'ice': event.candidate }))
+						} else {
+							console.log('ICE gathering complete for:', socketListId)
 						}
+					}
+
+					// Monitor connection state
+					connections[socketListId].oniceconnectionstatechange = function() {
+						console.log('ICE connection state for', socketListId, ':', connections[socketListId].iceConnectionState)
+					}
+
+					connections[socketListId].onconnectionstatechange = function() {
+						console.log('Connection state for', socketListId, ':', connections[socketListId].connectionState)
 					}
 
 					// Wait for their video stream
@@ -336,6 +401,11 @@ class Video extends Component {
 						console.log('Stream tracks:', event.stream.getTracks())
 						console.log('Video tracks:', event.stream.getVideoTracks())
 						console.log('Audio tracks:', event.stream.getAudioTracks())
+
+						// Validate stream has tracks
+						const videoTracks = event.stream.getVideoTracks()
+						const audioTracks = event.stream.getAudioTracks()
+						console.log('Stream validation - Video tracks:', videoTracks.length, 'Audio tracks:', audioTracks.length)
 
 						// Add remote stream to state instead of DOM manipulation
 						this.setState(prevState => {
@@ -350,7 +420,8 @@ class Video extends Component {
 								: `User ${socketListId.substring(0, 6)}`
 
 							console.log('Setting username for', socketListId, ':', username)
-							console.log('Available users:', prevState.users)
+							console.log('Available users in state:', prevState.users)
+							console.log('All users keys:', Object.keys(prevState.users))
 
 							if (existingStreamIndex !== -1) {
 								// Update existing stream
@@ -376,12 +447,13 @@ class Video extends Component {
 									updatedParticipants.push({
 										socketId: socketListId,
 										username: username,
-										audio: true,
-										video: true
+										audio: audioTracks.length > 0,
+										video: videoTracks.length > 0
 									})
 								}
 
 								console.log('Added new stream for:', username)
+								console.log('Final participants list:', updatedParticipants)
 								return {
 									remoteStreams: [...prevState.remoteStreams, newStream],
 									participants: updatedParticipants,
